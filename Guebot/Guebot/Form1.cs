@@ -185,5 +185,14 @@ namespace Guebot
                 txtLog.AppendText(string.Format("Serial Port Error: {0}\n", ex.Message));
             }
         }
+
+
+        private void Form1_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            if (port != null && port.IsOpen)
+            {
+                port.Close();
+            }
+        }
     }
 }
