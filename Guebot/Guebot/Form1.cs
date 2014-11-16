@@ -186,7 +186,6 @@ namespace Guebot
             }
         }
 
-
         private void Form1_FormClosing(object sender, FormClosingEventArgs e)
         {
             if (port != null && port.IsOpen)
