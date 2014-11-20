@@ -1,4 +1,5 @@
-﻿using System;
+﻿using GuebotEntities;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO.Ports;
@@ -15,9 +16,9 @@ namespace GuebotLib
 
         private bool waitingResponse;
 
-        public GuebotComponent Hand { get; set; }
+        public GuebotComponentEntity Hand { get; set; }
 
-        public GuebotComponent Arm { get; set; }
+        public GuebotComponentEntity Arm { get; set; }
 
         public string LastResponse { get; set; }
 
@@ -95,7 +96,19 @@ namespace GuebotLib
             }
         }
 
-        protected bool UpdateComponentPos(GuebotComponent comp, out string response)
+        public async Task<JSONStatusEntity> StatusAsync()
+        {
+            JSONStatusEntity obj = new JSONStatusEntity();
+
+            return obj;
+        }
+
+        public void Movement(JSONMovementEntity move)
+        {
+
+        }
+
+        protected bool UpdateComponentPos(GuebotComponentEntity comp, out string response)
         {
             string respCommand = string.Empty;
             bool result = SendCommand(string.Format("5502{0}0000", comp.Id.ToString("X2")), out respCommand);
@@ -115,7 +128,7 @@ namespace GuebotLib
             return result;
         }
 
-        protected bool MovePositive(GuebotComponent comp, out string response)
+        protected bool MovePositive(GuebotComponentEntity comp, out string response)
         {
             string respCommand = string.Empty;
             bool result = false;
@@ -146,7 +159,7 @@ namespace GuebotLib
             return result;
         }
 
-        protected bool MoveNegative(GuebotComponent comp, out string response)
+        protected bool MoveNegative(GuebotComponentEntity comp, out string response)
         {
             string respCommand = string.Empty;
             bool result = false;
@@ -187,13 +200,13 @@ namespace GuebotLib
             waitingResponse = false;
 
             // valores por defecto para el brazo
-            Arm = new GuebotComponent() { ActualValue = 0, Id = 1, MaxValue = 1000, MinValue = 0, StepMovement = 50 };
+            Arm = new GuebotComponentEntity() { ActualValue = 0, Id = 1, MaxValue = 1000, MinValue = 0, StepMovement = 50 };
 
             //valores por defecto para la mano
-            Hand = new GuebotComponent() { ActualValue = 0, Id = 2, MaxValue = 1000, MinValue = 0, StepMovement = 50 };
+            Hand = new GuebotComponentEntity() { ActualValue = 0, Id = 2, MaxValue = 1000, MinValue = 0, StepMovement = 50 };
         }
 
-        public Bot(string serialPortName, GuebotComponent arm, GuebotComponent hand)
+        public Bot(string serialPortName, GuebotComponentEntity arm, GuebotComponentEntity hand)
         {
             port = new SerialPort(serialPortName);
             port.ReadTimeout = 100;

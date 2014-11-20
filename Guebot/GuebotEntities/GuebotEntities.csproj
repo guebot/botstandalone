@@ -4,11 +4,11 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{3DF73025-ABBD-4F36-8978-8AFB728139C2}</ProjectGuid>
+    <ProjectGuid>{21DA07C0-AA9C-49AC-9746-81E7A1EDB52D}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>GuebotLib</RootNamespace>
-    <AssemblyName>GuebotLib</AssemblyName>
+    <RootNamespace>GuebotEntities</RootNamespace>
+    <AssemblyName>GuebotEntities</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
   </PropertyGroup>
@@ -32,7 +32,6 @@
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Core" />
-    <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="Microsoft.CSharp" />
@@ -40,16 +39,11 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Bot.cs" />
-    <Compile Include="Log.cs" />
-    <Compile Include="ProfilesGuebot.cs" />
+    <Compile Include="GuebotComponentEntity.cs" />
+    <Compile Include="JSONMovementEntity.cs" />
+    <Compile Include="JSONStatusEntity.cs" />
+    <Compile Include="ProfileEntity.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\GuebotEntities\GuebotEntities.csproj">
-      <Project>{21da07c0-aa9c-49ac-9746-81e7a1edb52d}</Project>
-      <Name>GuebotEntities</Name>
-    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

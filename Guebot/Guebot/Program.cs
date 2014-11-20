@@ -11,12 +11,20 @@ namespace Guebot
         /// <summary>
         /// The main entry point for the application.
         /// </summary>
+
         [STAThread]
         static void Main()
         {
+
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
+            #if DEBUG
+            NativeMethods.AllocConsole();
+            #endif
             Application.Run(new Form1());
+            #if DEBUG
+            NativeMethods.FreeConsole();
+            #endif
         }
     }
 }

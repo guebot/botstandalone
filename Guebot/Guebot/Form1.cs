@@ -1,40 +1,52 @@
-﻿using GuebotLib;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Data;
-using System.Drawing;
 using System.IO.Ports;
 using System.Linq;
 using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
 using System.Windows.Forms;
+using GuebotLib;
+using System.Configuration;
+using System.Threading.Tasks;
 
 namespace Guebot
 {
     public partial class Form1 : Form
     {
         private string portNameActual;
-
         private Bot robot;
+        private string WebSocketUri = string.Empty;
+        private string EggProfile = string.Empty;
 
         public Form1()
         {
             InitializeComponent();
 
-            // Muestra puertos disponibles
-            ShowPorts();
+            if (SerialPort.GetPortNames().Count() > 0)   
+                cmbPorts.Items.AddRange(SerialPort.GetPortNames());
+
+            Log.WriteToLog(txtLog, "Encontrados {0} puertos", SerialPort.GetPortNames().Length);
+
+            if (ProfilesGuebot.GetProfiles().Count() > 0)
+                cmbProfile.Items.AddRange(ProfilesGuebot.GetProfiles().Select(x => x.Name).ToArray());
+
+            Log.WriteToLog(txtLog, "Encontrados {0} perfiles", ProfilesGuebot.GetProfiles().Count);
+
+            #if !DEBUG
+            this.WebSocketUri = ConfigurationManager.AppSettings["WebSocketUri"].ToString();
+            #endif
 
             // Carga perfiles
-            LoadProfiles();
+            //LoadProfiles();
+            // Muestra puertos disponibles
+            //ShowPorts();
         }
 
         private void LoadProfiles()
         {
             try
             {
-                foreach (Profile p in ProfilesGuebot.GetProfiles())
+                foreach (ProfileEntity p in ProfilesGuebot.GetProfiles())
                 {
                     cmbProfile.Items.Add(p.Name);
                 }
@@ -42,11 +54,11 @@ namespace Guebot
                 {
                     cmbProfile.SelectedIndex = 0;
                 }
-                txtLog.AppendText(string.Format("Encontrados {0} perfiles\n", ProfilesGuebot.GetProfiles().Count));
+                Log.WriteToLog(txtLog, "Encontrados {0} perfiles", ProfilesGuebot.GetProfiles().Count);
             }
             catch (Exception ex)
             {
-                txtLog.AppendText(string.Format("Guebot Error: {0}\n", ex.Message));
+                Log.WriteToLog(txtLog, "Guebot Error: {0}", ex.Message);
             }
         }
 
@@ -62,7 +74,7 @@ namespace Guebot
                 {
                     cmbPorts.SelectedIndex = 0;
                 }
-                txtLog.AppendText(string.Format("Encontrados {0} puertos\n", SerialPort.GetPortNames().Length));
+                Log.WriteToLog("Encontrados {0} puertos", SerialPort.GetPortNames().Length);
             }
             catch (Exception ex)
             {
@@ -75,25 +87,27 @@ namespace Guebot
             try
             {
                 // abre
+                #if DEBUG
                 portNameActual = cmbPorts.Text;
-                robot = new Bot(portNameActual, ProfilesGuebot.GetProfiles().FirstOrDefault(f => f.Name.Equals(cmbProfile.Text)).Arm, ProfilesGuebot.GetProfiles().FirstOrDefault(f => f.Name.Equals(cmbProfile.Text)).Hand);
+                EggProfile = cmbProfile.Text;
+                #else
+                portNameActual = ConfigurationManager.AppSettings["DefaultPort"].ToString();
+                EggProfile = ConfigurationManager.AppSettings["DefaultEgg"].ToString();
+                #endif
+
+                robot = new Bot(portNameActual, ProfilesGuebot.GetProfiles().FirstOrDefault(f => f.Name.Equals(EggProfile)).Arm, ProfilesGuebot.GetProfiles().FirstOrDefault(f => f.Name.Equals(EggProfile)).Hand);
                 robot.OpenPort();
 
                 if (robot.IsPortOpen())
                 {
-                    //log
-                    txtLog.AppendText(string.Format("{0}: Puerto abierto exitosamente.\n", portNameActual));
+                    Log.WriteToLog("{0}: Puerto abierto exitosamente.", portNameActual);
 
                     //// reinicia brazo                    
                     string rCmd = string.Empty;
                     if (robot.ResetSystem(out rCmd))
-                    {
-                        txtLog.AppendText(string.Format("{0}: Reinicio del brazo exitoso.\n", portNameActual));
-                    }
+                        Log.WriteToLog("{0}: Reinicio del brazo exitoso.", portNameActual);
                     else
-                    {
-                        txtLog.AppendText(string.Format("{0}: Error al reiniciar el brazo. [{1}]\n", portNameActual, rCmd));
-                    }
+                        Log.WriteToLog("{0}: Error al reiniciar el brazo. [{1}]", portNameActual, rCmd);
 
                     //cambia estado de los botones
                     btnStart.Enabled = false;
@@ -106,11 +120,16 @@ namespace Guebot
                     txtCommand.Enabled = true;
                     btnCommand.Enabled = true;
                     cmbProfile.Enabled = false;
+
+                    #if !DEBUG
+                    WebSocket.Connect(this.WebSocketUri, this.robot).Wait();
+                    #endif
+
                 }
             }
             catch (Exception ex)
             {
-                txtLog.AppendText(string.Format("Error al abrir el puerto. {0}\n", ex.Message));
+                Log.WriteToLog("Error al abrir el puerto. {0}", ex.Message);
             }
         }
 
@@ -266,5 +285,11 @@ namespace Guebot
                 txtLog.AppendText(string.Format("Serial Port Error: {0}\n", ex.Message));
             }
         }
+
+        private void Form1_Load(object sender, EventArgs e)
+        {
+            
+        }
+
     }
 }
