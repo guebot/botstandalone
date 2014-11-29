@@ -152,7 +152,7 @@ namespace GuebotLib
                 {
                     break;
                 }
-                Thread.Sleep(100);
+                Thread.Sleep(10);
             }
 
             response = respCommand;
@@ -183,7 +183,7 @@ namespace GuebotLib
                 {
                     break;
                 }
-                Thread.Sleep(100);
+                Thread.Sleep(10);
             }
 
             response = respCommand;

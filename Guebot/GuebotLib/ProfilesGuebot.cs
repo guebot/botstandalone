@@ -17,16 +17,16 @@ namespace Guebot
             profiles.Add(
                 new ProfileEntity()
                 {
-                    Name = "AAA",
-                    Arm = new GuebotComponentEntity() { Id = 1, ActualValue = 0, MaxValue = 1000, MinValue = 0, StepMovement = 50 },
-                    Hand = new GuebotComponentEntity() { Id = 2, ActualValue = 0, MaxValue = 1000, MinValue = 0, StepMovement = 50 }
+                    Name = "KINDER",
+                    Arm = new GuebotComponentEntity() { Id = 1, ActualValue = 0, MaxValue = 1194, MinValue = 0, StepMovement = 20 },
+                    Hand = new GuebotComponentEntity() { Id = 2, ActualValue = 0, MaxValue = 229, MinValue = 0, StepMovement = 5 }
                 });
 
             // Otro Huevo
             profiles.Add(
                 new ProfileEntity()
                 {
-                    Name = "Huevo 2",
+                    Name = "Huevo",
                     Arm = new GuebotComponentEntity() { Id = 1, ActualValue = 0, MaxValue = 800, MinValue = 0, StepMovement = 50 },
                     Hand = new GuebotComponentEntity() { Id = 2, ActualValue = 0, MaxValue = 500, MinValue = 0, StepMovement = 50 }
                 });
