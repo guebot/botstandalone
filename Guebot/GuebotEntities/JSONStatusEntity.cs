@@ -18,6 +18,7 @@ namespace GuebotEntities
     public class consult
     {
         public string status { get; set; }
+        public response response { get; set; }
     }
 
     public class response

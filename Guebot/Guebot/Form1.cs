@@ -82,20 +82,20 @@ namespace Guebot
             }
         }
 
-        private void btnStart_Click(object sender, EventArgs e)
+        private void IniciarRobot()
         {
             try
             {
                 // abre
-                #if DEBUG
+#if DEBUG
                 portNameActual = cmbPorts.Text;
                 EggProfile = cmbProfile.Text;
-                #else
+#else
                 portNameActual = ConfigurationManager.AppSettings["DefaultPort"].ToString();
                 EggProfile = ConfigurationManager.AppSettings["DefaultEgg"].ToString();
-                #endif
+#endif
 
-                robot = new Bot(portNameActual, ProfilesGuebot.GetProfiles().FirstOrDefault(f => f.Name.Equals(EggProfile)).Arm, ProfilesGuebot.GetProfiles().FirstOrDefault(f => f.Name.Equals(EggProfile)).Hand);
+                robot = new Bot(portNameActual, ProfilesGuebot.GetProfiles().FirstOrDefault(f => f.Name.Equals(EggProfile)).Arm, ProfilesGuebot.GetProfiles().FirstOrDefault(f => f.Name.Equals(EggProfile)).Hand, this.WebSocketUri);
                 robot.OpenPort();
 
                 if (robot.IsPortOpen())
@@ -121,10 +121,6 @@ namespace Guebot
                     btnCommand.Enabled = true;
                     cmbProfile.Enabled = false;
 
-                    #if !DEBUG
-                    WebSocket.Connect(this.WebSocketUri, this.robot).Wait();
-                    #endif
-
                 }
             }
             catch (Exception ex)
@@ -133,6 +129,12 @@ namespace Guebot
             }
         }
 
+        private void btnStart_Click(object sender, EventArgs e)
+        {
+#if DEBUG
+            IniciarRobot();
+#endif
+        }
 
         private void btnStop_Click(object sender, EventArgs e)
         {
@@ -288,7 +290,9 @@ namespace Guebot
 
         private void Form1_Load(object sender, EventArgs e)
         {
-            
+#if !DEBUG
+            IniciarRobot();
+#endif 
         }
 
     }

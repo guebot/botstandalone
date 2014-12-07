@@ -7,20 +7,172 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using SocketIOClient;
+using Newtonsoft.Json;
 
 namespace GuebotLib
 {
     public class Bot
     {
+        #region Variables
         private SerialPort port;
-
+        Client socket;
         private bool waitingResponse;
+        #endregion
 
+        #region Propiedades
         public GuebotComponentEntity Hand { get; set; }
-
         public GuebotComponentEntity Arm { get; set; }
-
         public string LastResponse { get; set; }
+        public string WebSocketUri { get; set; }
+        #endregion
+
+        #region Ctor
+        public Bot(string serialPortName)
+        {
+            port = new SerialPort(serialPortName);
+            port.ReadTimeout = 100;
+            port.WriteTimeout = 100;
+            port.BaudRate = 9600;
+            port.DataReceived += port_DataReceived;
+            waitingResponse = false;
+
+            // valores por defecto para el brazo
+            Arm = new GuebotComponentEntity() { ActualValue = 0, Id = 1, MaxValue = 1000, MinValue = 0, StepMovement = 50 };
+
+            //valores por defecto para la mano
+            Hand = new GuebotComponentEntity() { ActualValue = 0, Id = 2, MaxValue = 1000, MinValue = 0, StepMovement = 50 };
+        }
+
+        public Bot(string serialPortName, GuebotComponentEntity arm, GuebotComponentEntity hand, string uriServer = "")
+        {
+            port = new SerialPort(serialPortName);
+            port.ReadTimeout = 100;
+            port.WriteTimeout = 100;
+            port.BaudRate = 9600;
+            port.DataReceived += port_DataReceived;
+            waitingResponse = false;
+
+            // valores para los componentes
+            this.Arm = arm;
+            this.Hand = hand;
+            this.WebSocketUri = uriServer;
+
+            socket = new Client(this.WebSocketUri);
+
+            socket.Opened += socket_Opened;
+            socket.Message += socket_Message;
+            socket.SocketConnectionClosed += socket_SocketConnectionClosed;
+            socket.Error += socket_Error;
+
+            socket.Connect(TransportType.XhrPolling);
+        }
+        #endregion
+
+        #region Socket Methods
+        void socket_Error(object sender, ErrorEventArgs e)
+        {
+            Log.WriteToLog("Socket client error: {0}", e.Message);
+        }
+
+        void socket_SocketConnectionClosed(object sender, EventArgs e)
+        {
+            Log.WriteToLog("Conexión con el websocket terminada!");
+        }
+
+        void socket_Message(object sender, MessageEventArgs e)
+        {
+            string strOutMessage = string.Empty;
+            if (e.Message.Event.Equals("movement"))
+            {
+                var json = e.Message.Json.ToJsonString();
+                JSONMovementEntity moveEntity = JsonConvert.DeserializeObject<JSONMovementEntity>(json);
+                switch (moveEntity.move.data.instruction)
+                {
+                    case "UP":
+                        MoveUpArm(out strOutMessage);
+                        break;
+                    case "DOWN":
+                        MoveDownArm(out strOutMessage);
+                        break;
+                    case "CLOSE":
+                        MoveCloseHand(out strOutMessage);
+                        break;
+                    case "OPEN":
+                        MoveOpenHand(out strOutMessage);
+                        break;
+                    default:
+                        break;
+                }
+            }
+            else
+            {
+
+            }
+
+            //TODO - Parsear el mensaje de salida para enviar el estado
+            JSONStatusEntity statusEntity = new JSONStatusEntity();
+            //Posibles valores
+            // UP_OPEN
+            // UP_CLOSE
+            // DOWN_OPEN
+            // DOWN_CLOSE
+            statusEntity.consult.status = "";
+            // Posibles valores.
+            // 00 = Ejecutado exitosamente
+            // 50 = Problemas de comunicación
+            // 80 = Petición inválida
+            // 90 = Petición encolada
+            statusEntity.consult.response.code = "";
+            // Mensaje opcional
+            statusEntity.consult.response.message = "";
+            socket.Emit("status", JsonConvert.SerializeObject(statusEntity));
+
+            if (string.IsNullOrEmpty(e.Message.Event))
+                Console.WriteLine("Generic SocketMessage: {0}", e.Message.MessageText);
+            else
+                Console.WriteLine("Generic SocketMessage: {0} : {1}", e.Message.Event, e.Message.Json.ToJsonString());
+        }
+
+        void socket_Opened(object sender, EventArgs e)
+        {
+            Log.WriteToLog("Socket abierto!");
+        }
+
+        public void Close()
+        {
+            if (this.socket != null)
+            {
+                socket.Opened -= socket_Opened;
+                socket.Message -= socket_Message;
+                socket.SocketConnectionClosed -= socket_SocketConnectionClosed;
+                socket.Error -= socket_Error;
+                this.socket.Dispose(); // close & dispose of socket client
+            }
+        }
+        #endregion
+
+        #region Métodos de movimiento de brazo
+        public bool MoveDownArm(out string response)
+        {
+            return MovePositive(Arm, out response);
+        }
+
+        public bool MoveUpArm(out string response)
+        {
+            return MoveNegative(Arm, out response);
+        }
+
+        public bool MoveCloseHand(out string response)
+        {
+            return MovePositive(Hand, out response);
+        }
+
+        public bool MoveOpenHand(out string response)
+        {
+            return MoveNegative(Hand, out response);
+        }
+        #endregion 
 
         protected static byte[] StringToByteArray(string hex)
         {
@@ -94,18 +246,6 @@ namespace GuebotLib
             {
                 LastResponse = port.ReadExisting();
             }
-        }
-
-        public async Task<JSONStatusEntity> StatusAsync()
-        {
-            JSONStatusEntity obj = new JSONStatusEntity();
-
-            return obj;
-        }
-
-        public void Movement(JSONMovementEntity move)
-        {
-
         }
 
         protected bool UpdateComponentPos(GuebotComponentEntity comp, out string response)
@@ -189,37 +329,7 @@ namespace GuebotLib
             response = respCommand;
             return result;
         }
-
-        public Bot(string serialPortName)
-        {
-            port = new SerialPort(serialPortName);
-            port.ReadTimeout = 100;
-            port.WriteTimeout = 100;
-            port.BaudRate = 9600;
-            port.DataReceived += port_DataReceived;
-            waitingResponse = false;
-
-            // valores por defecto para el brazo
-            Arm = new GuebotComponentEntity() { ActualValue = 0, Id = 1, MaxValue = 1000, MinValue = 0, StepMovement = 50 };
-
-            //valores por defecto para la mano
-            Hand = new GuebotComponentEntity() { ActualValue = 0, Id = 2, MaxValue = 1000, MinValue = 0, StepMovement = 50 };
-        }
-
-        public Bot(string serialPortName, GuebotComponentEntity arm, GuebotComponentEntity hand)
-        {
-            port = new SerialPort(serialPortName);
-            port.ReadTimeout = 100;
-            port.WriteTimeout = 100;
-            port.BaudRate = 9600;
-            port.DataReceived += port_DataReceived;
-            waitingResponse = false;
-
-            // valores para los componentes
-            Arm = arm;
-            Hand = hand;
-        }
-
+      
         public void OpenPort()
         {
             port.Open();
@@ -278,26 +388,6 @@ namespace GuebotLib
                 Hand.ActualValue = 0;
             }
             return result;
-        }
-
-        public bool MoveDownArm(out string response)
-        {
-            return MovePositive(Arm, out response);
-        }
-
-        public bool MoveUpArm(out string response)
-        {
-            return MoveNegative(Arm, out response);
-        }
-
-        public bool MoveCloseHand(out string response)
-        {
-            return MovePositive(Hand, out response);
-        }
-
-        public bool MoveOpenHand(out string response)
-        {
-            return MoveNegative(Hand, out response);
         }
     }
 }

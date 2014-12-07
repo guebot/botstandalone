@@ -88,10 +88,6 @@
       <Project>{3df73025-abbd-4f36-8978-8afb728139c2}</Project>
       <Name>GuebotLib</Name>
     </ProjectReference>
-    <ProjectReference Include="..\GuebotSocket\GuebotSocket.csproj">
-      <Project>{df27cbf3-3956-40f2-97e8-b068c284806c}</Project>
-      <Name>GuebotSocket</Name>
-    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
