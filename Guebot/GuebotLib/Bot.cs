@@ -18,6 +18,17 @@ namespace GuebotLib
         private SerialPort port;
         Client socket;
         private bool waitingResponse;
+        private RobotStatus lastRequest;
+        #endregion
+
+        #region Enumeración Robot
+        private enum RobotStatus
+        {
+            UP_OPEN,
+            UP_CLOSE,
+            DOWN_CLOSE,
+            DOWN_OPEN
+        }
         #endregion
 
         #region Propiedades
@@ -66,10 +77,28 @@ namespace GuebotLib
             socket.Error += socket_Error;
 
             socket.Connect(TransportType.XhrPolling);
+            socket.On("connect", InitialMessage);    
         }
         #endregion
 
         #region Socket Methods
+        private void InitialMessage(object obj)
+        {
+            Console.WriteLine("\r\nConnected event...{0}\r\n", socket.ioTransport.TransportType);
+            JSONStatusEntity statusEntity = new JSONStatusEntity();
+            consult c = new consult();
+            c.status = RobotStatus.UP_OPEN.ToString();
+            response r = new response();
+            r.code = "00";
+            r.message = "Inicio de robot";
+            statusEntity.consult = c;
+            statusEntity.consult.response = r;
+            string json = JsonConvert.SerializeObject(statusEntity);
+            Console.WriteLine(json);
+            socket.Emit("status", json);
+            lastRequest = RobotStatus.UP_OPEN;
+        }
+
         void socket_Error(object sender, ErrorEventArgs e)
         {
             Log.WriteToLog("Socket client error: {0}", e.Message);
@@ -83,9 +112,14 @@ namespace GuebotLib
         void socket_Message(object sender, MessageEventArgs e)
         {
             string strOutMessage = string.Empty;
+            string strStatus = string.Empty;
+            JSONStatusEntity statusEntity = new JSONStatusEntity();
+            consult c = new consult();
+            response r = new response();
             if (e.Message.Event.Equals("movement"))
             {
-                var json = e.Message.Json.ToJsonString();
+                var json = Convert.ToString(e.Message.Json.Args[0]);
+                
                 JSONMovementEntity moveEntity = JsonConvert.DeserializeObject<JSONMovementEntity>(json);
                 switch (moveEntity.move.data.instruction)
                 {
@@ -104,28 +138,69 @@ namespace GuebotLib
                     default:
                         break;
                 }
+
+                if (string.IsNullOrEmpty(strOutMessage))
+                {
+                    if (lastRequest.Equals(RobotStatus.UP_OPEN))
+                    {
+                        if (moveEntity.move.data.instruction.Equals("DOWN"))
+                        {
+                            lastRequest = RobotStatus.DOWN_OPEN;
+                        }
+                        else if (moveEntity.move.data.instruction.Equals("CLOSE"))
+                        {
+                            lastRequest = RobotStatus.UP_CLOSE;
+                        }
+                    }
+                    else if (lastRequest.Equals(RobotStatus.UP_CLOSE))
+                    {
+                        if (moveEntity.move.data.instruction.Equals("DOWN"))
+                        {
+                            lastRequest = RobotStatus.UP_CLOSE;
+                        }
+                        else if (moveEntity.move.data.instruction.Equals("OPEN"))
+                        {
+                            lastRequest = RobotStatus.UP_OPEN;
+                        }
+                    }
+                    else if (lastRequest.Equals(RobotStatus.DOWN_CLOSE))
+                    {
+                        if (moveEntity.move.data.instruction.Equals("OPEN"))
+                        {
+                            lastRequest = RobotStatus.DOWN_OPEN;
+                        }
+                        else if (moveEntity.move.data.instruction.Equals("UP"))
+                        {
+                            lastRequest = RobotStatus.UP_CLOSE;
+                        }
+                    }
+                    else if (lastRequest.Equals(RobotStatus.DOWN_OPEN))
+                    {
+                        if (moveEntity.move.data.instruction.Equals("CLOSE"))
+                        {
+                            lastRequest = RobotStatus.DOWN_CLOSE;
+                        }
+                        else if (moveEntity.move.data.instruction.Equals("UP"))
+                        {
+                            lastRequest = RobotStatus.UP_OPEN;
+                        }
+                    }
+                    r.code = "00";
+                }
+                else
+                {
+                    strStatus = lastRequest.ToString();
+                    r.code = "50";
+                }
             }
             else
-            {
+                r.code = "80";
 
-            }
+            c.status = strStatus;
+            r.message = strOutMessage.Trim();
 
-            //TODO - Parsear el mensaje de salida para enviar el estado
-            JSONStatusEntity statusEntity = new JSONStatusEntity();
-            //Posibles valores
-            // UP_OPEN
-            // UP_CLOSE
-            // DOWN_OPEN
-            // DOWN_CLOSE
-            statusEntity.consult.status = "";
-            // Posibles valores.
-            // 00 = Ejecutado exitosamente
-            // 50 = Problemas de comunicación
-            // 80 = Petición inválida
-            // 90 = Petición encolada
-            statusEntity.consult.response.code = "";
-            // Mensaje opcional
-            statusEntity.consult.response.message = "";
+            statusEntity.consult = c;
+            statusEntity.consult.response = r;
             socket.Emit("status", JsonConvert.SerializeObject(statusEntity));
 
             if (string.IsNullOrEmpty(e.Message.Event))
@@ -136,7 +211,7 @@ namespace GuebotLib
 
         void socket_Opened(object sender, EventArgs e)
         {
-            Log.WriteToLog("Socket abierto!");
+            Log.WriteToLog("Socket abierto!");   
         }
 
         public void Close()
@@ -171,15 +246,6 @@ namespace GuebotLib
         public bool MoveOpenHand(out string response)
         {
             return MoveNegative(Hand, out response);
-        }
-        #endregion 
-
-        protected static byte[] StringToByteArray(string hex)
-        {
-            return Enumerable.Range(0, hex.Length)
-                             .Where(x => x % 2 == 0)
-                             .Select(x => Convert.ToByte(hex.Substring(x, 2), 16))
-                             .ToArray();
         }
 
         protected bool SendCommand(string cmd, out string response)
@@ -226,45 +292,6 @@ namespace GuebotLib
                 result = LastResponse.Substring(0, 4).Equals("5501");
             }
 
-            return result;
-        }
-
-        protected void port_DataReceived(object sender, SerialDataReceivedEventArgs e)
-        {
-            //espera respuesta del sistema
-            if (waitingResponse)
-            {
-                if (port.BytesToRead >= 5)
-                {
-                    byte[] data = new byte[port.BytesToRead];
-                    port.Read(data, 0, data.Length);
-                    LastResponse = BitConverter.ToString(data).Replace("-", string.Empty);
-                    waitingResponse = false;
-                }
-            }
-            else
-            {
-                LastResponse = port.ReadExisting();
-            }
-        }
-
-        protected bool UpdateComponentPos(GuebotComponentEntity comp, out string response)
-        {
-            string respCommand = string.Empty;
-            bool result = SendCommand(string.Format("5502{0}0000", comp.Id.ToString("X2")), out respCommand);
-            if (result)
-            {
-                if (respCommand.Length >= 10)
-                {
-                    comp.ActualValue = int.Parse(respCommand.Substring(6, 4), System.Globalization.NumberStyles.HexNumber);
-                }
-                else
-                {
-                    respCommand = "Error actual value";
-                    result = false;
-                }
-            }
-            response = respCommand;
             return result;
         }
 
@@ -329,7 +356,79 @@ namespace GuebotLib
             response = respCommand;
             return result;
         }
-      
+        #endregion
+
+        #region Métodos de calibración
+        public bool CalibrateArm(int maxValue, out string response)
+        {
+            bool result = SendCommand(string.Format("5504{0}{1}", Arm.Id.ToString("X2"), maxValue.ToString("X4")), out response);
+            if (result)
+            {
+                Arm.MaxValue = maxValue;
+                Arm.ActualValue = 0;
+            }
+            return result;
+        }
+
+        public bool CalibrateHand(int maxValue, out string response)
+        {
+            bool result = SendCommand(string.Format("5504{0}{1}", Hand.Id.ToString("X2"), maxValue.ToString("X4")), out response);
+            if (result)
+            {
+                Hand.MaxValue = maxValue;
+                Hand.ActualValue = 0;
+            }
+            return result;
+        }
+        #endregion
+
+        protected static byte[] StringToByteArray(string hex)
+        {
+            return Enumerable.Range(0, hex.Length)
+                             .Where(x => x % 2 == 0)
+                             .Select(x => Convert.ToByte(hex.Substring(x, 2), 16))
+                             .ToArray();
+        }
+
+        protected void port_DataReceived(object sender, SerialDataReceivedEventArgs e)
+        {
+            //espera respuesta del sistema
+            if (waitingResponse)
+            {
+                if (port.BytesToRead >= 5)
+                {
+                    byte[] data = new byte[port.BytesToRead];
+                    port.Read(data, 0, data.Length);
+                    LastResponse = BitConverter.ToString(data).Replace("-", string.Empty);
+                    waitingResponse = false;
+                }
+            }
+            else
+            {
+                LastResponse = port.ReadExisting();
+            }
+        }
+
+        protected bool UpdateComponentPos(GuebotComponentEntity comp, out string response)
+        {
+            string respCommand = string.Empty;
+            bool result = SendCommand(string.Format("5502{0}0000", comp.Id.ToString("X2")), out respCommand);
+            if (result)
+            {
+                if (respCommand.Length >= 10)
+                {
+                    comp.ActualValue = int.Parse(respCommand.Substring(6, 4), System.Globalization.NumberStyles.HexNumber);
+                }
+                else
+                {
+                    respCommand = "Error actual value";
+                    result = false;
+                }
+            }
+            response = respCommand;
+            return result;
+        }
+
         public void OpenPort()
         {
             port.Open();
@@ -365,28 +464,6 @@ namespace GuebotLib
         public bool TextCommand(string command, out string response)
         {
             bool result = SendCommand(string.Format(command.Trim()), out response);
-            return result;
-        }
-
-        public bool CalibrateArm(int maxValue, out string response)
-        {
-            bool result = SendCommand(string.Format("5504{0}{1}", Arm.Id.ToString("X2"), maxValue.ToString("X4")), out response);
-            if (result)
-            {
-                Arm.MaxValue = maxValue;
-                Arm.ActualValue = 0;
-            }
-            return result;
-        }
-
-        public bool CalibrateHand(int maxValue, out string response)
-        {
-            bool result = SendCommand(string.Format("5504{0}{1}", Hand.Id.ToString("X2"), maxValue.ToString("X4")), out response);
-            if (result)
-            {
-                Hand.MaxValue = maxValue;
-                Hand.ActualValue = 0;
-            }
             return result;
         }
     }

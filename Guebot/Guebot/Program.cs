@@ -18,13 +18,10 @@ namespace Guebot
 
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
-            #if DEBUG
             NativeMethods.AllocConsole();
-            #endif
             Application.Run(new Form1());
-            #if DEBUG
             NativeMethods.FreeConsole();
-            #endif
+            
         }
     }
 }

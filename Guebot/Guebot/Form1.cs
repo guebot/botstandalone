@@ -22,7 +22,7 @@ namespace Guebot
         {
             InitializeComponent();
 
-            if (SerialPort.GetPortNames().Count() > 0)   
+            if (SerialPort.GetPortNames().Count() > 0)
                 cmbPorts.Items.AddRange(SerialPort.GetPortNames());
 
             Log.WriteToLog(txtLog, "Encontrados {0} puertos", SerialPort.GetPortNames().Length);
@@ -32,14 +32,9 @@ namespace Guebot
 
             Log.WriteToLog(txtLog, "Encontrados {0} perfiles", ProfilesGuebot.GetProfiles().Count);
 
-            #if !DEBUG
+#if !DEBUG
             this.WebSocketUri = ConfigurationManager.AppSettings["WebSocketUri"].ToString();
-            #endif
-
-            // Carga perfiles
-            //LoadProfiles();
-            // Muestra puertos disponibles
-            //ShowPorts();
+#endif
         }
 
         private void LoadProfiles()
@@ -95,7 +90,10 @@ namespace Guebot
                 EggProfile = ConfigurationManager.AppSettings["DefaultEgg"].ToString();
 #endif
 
-                robot = new Bot(portNameActual, ProfilesGuebot.GetProfiles().FirstOrDefault(f => f.Name.Equals(EggProfile)).Arm, ProfilesGuebot.GetProfiles().FirstOrDefault(f => f.Name.Equals(EggProfile)).Hand, this.WebSocketUri);
+                GuebotComponentEntity arm = ProfilesGuebot.GetProfiles().Where(f => f.Name.Equals(EggProfile)).FirstOrDefault().Arm;
+                GuebotComponentEntity hand = ProfilesGuebot.GetProfiles().Where(f => f.Name.Equals(EggProfile)).FirstOrDefault().Hand;
+
+                robot = new Bot(portNameActual, arm, hand, this.WebSocketUri);
                 robot.OpenPort();
 
                 if (robot.IsPortOpen())
@@ -120,7 +118,6 @@ namespace Guebot
                     txtCommand.Enabled = true;
                     btnCommand.Enabled = true;
                     cmbProfile.Enabled = false;
-
                 }
             }
             catch (Exception ex)
@@ -292,7 +289,7 @@ namespace Guebot
         {
 #if !DEBUG
             IniciarRobot();
-#endif 
+#endif
         }
 
     }
