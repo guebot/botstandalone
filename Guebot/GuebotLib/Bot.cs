@@ -77,9 +77,14 @@ namespace GuebotLib
             socket.Error += socket_Error;
 
             socket.Connect(TransportType.XhrPolling);
-            socket.On("connect", InitialMessage);    
+            socket.On("connect", InitialMessage);
         }
         #endregion
+
+        private string JsonParser(string status, string code, string mensaje)
+        {
+            return @"{ 'consult': { 'status': '" + status + "', 'response': { 'code': '" + code + "', 'message': '" + mensaje + "' } } }";
+        }
 
         #region Socket Methods
         private void InitialMessage(object obj)
@@ -94,6 +99,7 @@ namespace GuebotLib
             statusEntity.consult = c;
             statusEntity.consult.response = r;
             string json = JsonConvert.SerializeObject(statusEntity);
+            json = JsonParser(RobotStatus.UP_OPEN.ToString(), "00", r.message);
             Console.WriteLine(json);
             socket.Emit("status", json);
             lastRequest = RobotStatus.UP_OPEN;
@@ -111,6 +117,7 @@ namespace GuebotLib
 
         void socket_Message(object sender, MessageEventArgs e)
         {
+            bool ejecucion = true;
             string strOutMessage = string.Empty;
             string strStatus = string.Empty;
             JSONStatusEntity statusEntity = new JSONStatusEntity();
@@ -119,72 +126,57 @@ namespace GuebotLib
             if (e.Message.Event.Equals("movement"))
             {
                 var json = Convert.ToString(e.Message.Json.Args[0]);
-                
+
                 JSONMovementEntity moveEntity = JsonConvert.DeserializeObject<JSONMovementEntity>(json);
                 switch (moveEntity.move.data.instruction)
                 {
                     case "UP":
-                        MoveUpArm(out strOutMessage);
+                        ejecucion = MoveUpArm(out strOutMessage);
                         break;
                     case "DOWN":
-                        MoveDownArm(out strOutMessage);
+                        ejecucion = MoveDownArm(out strOutMessage);
                         break;
                     case "CLOSE":
-                        MoveCloseHand(out strOutMessage);
+                        ejecucion = MoveCloseHand(out strOutMessage);
                         break;
                     case "OPEN":
-                        MoveOpenHand(out strOutMessage);
+                        ejecucion = MoveOpenHand(out strOutMessage);
                         break;
                     default:
                         break;
                 }
 
-                if (string.IsNullOrEmpty(strOutMessage))
+                if (ejecucion)
                 {
                     if (lastRequest.Equals(RobotStatus.UP_OPEN))
                     {
                         if (moveEntity.move.data.instruction.Equals("DOWN"))
-                        {
                             lastRequest = RobotStatus.DOWN_OPEN;
-                        }
                         else if (moveEntity.move.data.instruction.Equals("CLOSE"))
-                        {
                             lastRequest = RobotStatus.UP_CLOSE;
-                        }
                     }
                     else if (lastRequest.Equals(RobotStatus.UP_CLOSE))
                     {
                         if (moveEntity.move.data.instruction.Equals("DOWN"))
-                        {
-                            lastRequest = RobotStatus.UP_CLOSE;
-                        }
+                            lastRequest = RobotStatus.DOWN_CLOSE;
                         else if (moveEntity.move.data.instruction.Equals("OPEN"))
-                        {
                             lastRequest = RobotStatus.UP_OPEN;
-                        }
                     }
                     else if (lastRequest.Equals(RobotStatus.DOWN_CLOSE))
                     {
                         if (moveEntity.move.data.instruction.Equals("OPEN"))
-                        {
                             lastRequest = RobotStatus.DOWN_OPEN;
-                        }
                         else if (moveEntity.move.data.instruction.Equals("UP"))
-                        {
                             lastRequest = RobotStatus.UP_CLOSE;
-                        }
                     }
                     else if (lastRequest.Equals(RobotStatus.DOWN_OPEN))
                     {
                         if (moveEntity.move.data.instruction.Equals("CLOSE"))
-                        {
                             lastRequest = RobotStatus.DOWN_CLOSE;
-                        }
                         else if (moveEntity.move.data.instruction.Equals("UP"))
-                        {
                             lastRequest = RobotStatus.UP_OPEN;
-                        }
                     }
+                    strStatus = lastRequest.ToString();
                     r.code = "00";
                 }
                 else
@@ -201,7 +193,10 @@ namespace GuebotLib
 
             statusEntity.consult = c;
             statusEntity.consult.response = r;
-            socket.Emit("status", JsonConvert.SerializeObject(statusEntity));
+            var jsonStatus = JsonParser(strStatus, r.code, strOutMessage);
+            Console.WriteLine(jsonStatus);
+            if (!string.IsNullOrEmpty(strStatus))
+                socket.Emit("status", jsonStatus);
 
             if (string.IsNullOrEmpty(e.Message.Event))
                 Console.WriteLine("Generic SocketMessage: {0}", e.Message.MessageText);
@@ -211,7 +206,7 @@ namespace GuebotLib
 
         void socket_Opened(object sender, EventArgs e)
         {
-            Log.WriteToLog("Socket abierto!");   
+            Log.WriteToLog("Socket abierto!");
         }
 
         public void Close()

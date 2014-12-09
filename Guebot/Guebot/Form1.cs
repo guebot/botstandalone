@@ -32,9 +32,7 @@ namespace Guebot
 
             Log.WriteToLog(txtLog, "Encontrados {0} perfiles", ProfilesGuebot.GetProfiles().Count);
 
-#if !DEBUG
             this.WebSocketUri = ConfigurationManager.AppSettings["WebSocketUri"].ToString();
-#endif
         }
 
         private void LoadProfiles()
